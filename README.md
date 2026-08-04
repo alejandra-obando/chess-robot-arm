@@ -201,11 +201,11 @@ More photos in [`media/photos/`](media/photos/).
 ## Author
 
 **Alejandra Obando Cortes**
-Embedded Systems / Robotics Engineer
+Mechatronics Engineering Student | Robotics & Embedded Systems
 
 - 📧 [obandoaleja281@gmail.com](mailto:obandoaleja281@gmail.com)
 - 💼 [LinkedIn](https://www.linkedin.com/in/alejandra-obando-cortes-b485223a4/)
-- 💻 [GitHub](https://github.com/obandoaleja281-ctrl)
+- 💻 [GitHub](https://github.com/alejandra-obando)
 
 Built as an end-to-end embedded + robotics + software project: dual-ESP32
 firmware (C++/PlatformIO), PWM/I2C servo control, sensor-matrix design, and
