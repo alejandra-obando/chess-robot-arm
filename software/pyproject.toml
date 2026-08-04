@@ -5,8 +5,8 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "chess-arm"
 version = "0.1.0"
-description = "PC-side brain for a chess-playing robotic arm: board sensing, game logic and motion planning over a serial link to an ESP32."
-readme = "../README.md"
+description = "PC-side brain for a chess-playing robotic arm: board sensing, game logic and motion planning over serial links to two ESP32s."
+authors = [{ name = "Alejandra Obando Cortes", email = "obandoaleja281@gmail.com" }]
 requires-python = ">=3.10"
 dependencies = [
     "pyserial>=3.5",

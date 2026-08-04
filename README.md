@@ -1,105 +1,147 @@
 # ♟️ Chess Robot Arm
 
 A robotic arm that plays chess against a human on a real board: 64 reed
-switches sense which squares are occupied, an ESP32 reports that state and
-drives the arm's servos, and a Python program on the PC runs the actual
-chess logic and move planning.
-
-<!--
-Once media/demo.gif exists (see media/README.md), uncomment this:
+switches sense which squares are occupied, one ESP32 reports that state,
+a second ESP32 drives the arm's 6 servos (4 DOF + gripper), and a Python
+program on the PC runs the actual chess logic and move planning.
 
 <p align="center">
   <img src="media/demo.gif" alt="Arm making a move on the physical board" width="600">
 </p>
--->
-
-> 🎥 Demo GIF coming soon — see [`media/README.md`](media/README.md) for how
-> it gets added.
 
 <p align="center">
-  <img src="https://img.shields.io/badge/firmware-ESP32%20%2F%20PlatformIO-blue" alt="ESP32 / PlatformIO">
+  <img src="https://img.shields.io/badge/firmware-2x%20ESP32%20%2F%20PlatformIO-blue" alt="2x ESP32 / PlatformIO">
   <img src="https://img.shields.io/badge/software-Python%203.10%2B-blue" alt="Python 3.10+">
   <img src="https://img.shields.io/badge/chess-python--chess-brightgreen" alt="python-chess">
+  <img src="https://img.shields.io/badge/DOF-4%20%2B%20gripper-orange" alt="4 DOF + gripper">
   <img src="https://img.shields.io/badge/license-MIT-lightgrey" alt="MIT license">
 </p>
 
 ## How it works
 
 1. A human moves a physical piece. The 8x8 reed switch matrix under the
-   board detects which square emptied and which one filled.
-2. The ESP32 reports that as a raw occupancy string over USB serial.
+   board (read through a 16-channel analog multiplexer) detects which
+   square emptied and which one filled.
+2. **ESP32 #1** (board) reports that as a raw occupancy string over USB
+   serial.
 3. The PC matches the change to a legal chess move (`python-chess`), and if
    it's the arm's turn, computes a reply move (Stockfish if installed,
    otherwise a random legal move as a zero-dependency fallback).
-4. The move is turned into a sequence of servo waypoints — including
+4. The move is turned into a sequence of joint waypoints — including
    captures (piece parked in a "graveyard" slot), en passant, and castling
-   — and streamed to the ESP32, which smoothly interpolates each joint.
+   — and streamed to **ESP32 #2** (arm), which drives all 6 servos through
+   a PCA9685 PWM driver, smoothly interpolating each joint.
 
-Full breakdown, including *why* the logic is split this way, in
+Full breakdown, including *why* the system is split this way, in
 [`docs/architecture.md`](docs/architecture.md). Wire-level pin choices are
-in [`docs/wiring.md`](docs/wiring.md). The exact serial message format is
+in [`docs/wiring.md`](docs/wiring.md). The exact serial message formats are
 in [`docs/protocol.md`](docs/protocol.md).
 
 ```mermaid
 flowchart LR
-    RS["Reed switch matrix"] --> ESP["ESP32 firmware"]
-    ESP <-- "JSON over USB serial" --> PC["Python (chess_arm)"]
-    ESP --> Arm["Arm servos"]
+    RS["Reed switch matrix\n(64 squares, read via 16ch mux)"] --> ESP2["ESP32 #2\nboard firmware"]
+    ESP2 <-- "JSON / USB serial" --> PC["Python (chess_arm)"]
+    PC <-- "JSON / USB serial" --> ESP1["ESP32 #1\narm firmware"]
+    ESP1 -- "PWM / I2C" --> PCA["PCA9685"]
+    PCA --> Arm["Arm: 4 DOF + gripper\n6x MG996R servos"]
 ```
 
 ## Repo structure
 
 ```
 BRAZO_ROBOTICO/
-├── firmware/esp32_chess_arm/   PlatformIO project: matrix scan + servo control
-│   └── src/
-│       ├── config.h            Pin map, board size, servo count
-│       ├── ReedMatrix.*         8x8 matrix scanning
-│       ├── ArmController.*      Smooth multi-servo interpolation
-│       ├── Protocol.*           JSON serial protocol
-│       └── main.cpp
-├── software/                   PC side (Python)
+├── firmware/
+│   ├── esp32_arm/               ESP32 #1: arm control (PlatformIO)
+│   │   └── src/
+│   │       ├── config.h          I2C pins, PCA9685 address, joint->channel map
+│   │       ├── ArmController.*   Smooth multi-joint interpolation via PCA9685
+│   │       ├── Protocol.*        JSON serial protocol
+│   │       └── main.cpp
+│   └── esp32_board/              ESP32 #2: board sensing (PlatformIO)
+│       └── src/
+│           ├── config.h          Row pins, mux select/signal pins
+│           ├── ReedMatrix.*      8x8 matrix scan via 16ch analog mux
+│           ├── Protocol.*        JSON serial protocol
+│           └── main.cpp
+├── software/                     PC side (Python)
 │   ├── chess_arm/
-│   │   ├── serial_link.py       Threaded serial transport
-│   │   ├── board_state.py       Raw matrix -> square diff
-│   │   ├── game_engine.py       python-chess + optional Stockfish
-│   │   ├── move_planner.py      Move -> servo waypoints (captures, en passant, castling)
-│   │   ├── calibration.py       Per-square servo angle calibration
-│   │   └── main.py              Game loop entry point
+│   │   ├── serial_link.py        Threaded serial transport
+│   │   ├── board_state.py        Raw matrix -> square diff
+│   │   ├── game_engine.py        python-chess + optional Stockfish
+│   │   ├── move_planner.py       Move -> joint waypoints (captures, en passant, castling)
+│   │   ├── calibration.py        Per-square servo angle calibration
+│   │   └── main.py               Game loop entry point (opens both serial links)
 │   ├── config/calibration.example.json
-│   └── tests/                   pytest suite, no hardware required
+│   └── tests/                    pytest suite, no hardware required
 ├── scripts/
-│   ├── calibrate.py             Interactive tool to build calibration.json
-│   └── make_gif.sh              Convert a phone video into a repo-ready GIF
-├── docs/                        architecture.md, wiring.md, protocol.md
-└── media/                       Photos/GIFs of the arm in action
+│   ├── calibrate.py              Interactive tool to build calibration.json
+│   └── make_gif.sh               Convert a phone video into a repo-ready GIF
+├── docs/                         architecture.md, wiring.md, protocol.md
+└── media/                        Photos/GIFs of the arm in action
 ```
 
 ## Hardware
 
-- ESP32 dev board
-- 64x reed switches (one per square) wired as an 8x8 matrix
-- Robotic arm with servo-driven joints (DOF and gripper/electromagnet TBD —
-  see the `TODO`s in `docs/wiring.md`)
-- External 5-6V supply for the servos
+Two ESP32s, each with its own USB link to the PC — see
+[`docs/architecture.md`](docs/architecture.md) for why.
 
-_Full bill of materials: TODO once parts are finalized._
+**Microcontrollers**
+- ESP32 #1 — arm control
+- ESP32 #2 — board + multiplexer control
+
+**Control & actuators**
+- PCA9685 16-channel PWM driver (drives all 6 servos over I2C)
+- 16-channel analog multiplexer (reads the reed switch matrix columns)
+
+**Arm — 4 DOF + gripper, 6x MG996R digital hi-torque servos**
+| Joint | Servos | Notes |
+|---|---|---|
+| M1 — Base | 1 | Rotation |
+| M2 — 1st articulation (shoulder) | 2 | Paired for extra torque |
+| M3 — 2nd articulation (elbow) | 1 | |
+| M4 — 3rd articulation (wrist) | 1 | |
+| M5 — Gripper | 1 | End effector |
+
+**Power & distribution**
+- Buslinker v2.5 power distribution module
+- 100µF 16V capacitor (rail smoothing)
+- Blue screw-terminal connectors
+- Red/black power cable (servo rail)
+- External 5-6V supply sized for 6 servos
+
+**Board**
+- 64x reed switches (8x8 matrix, columns read via the mux)
+
+**Prototyping**
+- Breadboard, jumper wires, multichannel terminal connectors
+- Potentiometer (manual angle jogging during bring-up/calibration)
+
+**Other**
+- Expansion/sensor module (spare I/O for future additions)
+
+Full pin-level detail in [`docs/wiring.md`](docs/wiring.md).
 
 ## Getting started
 
-### 1. Firmware (ESP32)
+### 1. Firmware (both ESP32s)
 
 Requires [PlatformIO](https://platformio.org/) (CLI or the VS Code
-extension).
+extension). Flash each board from its own project directory:
 
 ```bash
-cd firmware/esp32_chess_arm
+# ESP32 #1 -- arm
+cd firmware/esp32_arm
+pio run --target upload
+pio device monitor
+
+# ESP32 #2 -- board
+cd firmware/esp32_board
 pio run --target upload
 pio device monitor
 ```
 
-Check `src/config.h` against your actual wiring before flashing (see
-[`docs/wiring.md`](docs/wiring.md)).
+Check each project's `src/config.h` against your actual wiring before
+flashing (see [`docs/wiring.md`](docs/wiring.md)).
 
 ### 2. PC software
 
@@ -110,16 +152,19 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-Build a calibration file for your arm (maps each square to servo angles):
+Build a calibration file for your arm (maps each square to joint angles;
+only needs the arm ESP32 connected):
 
 ```bash
-python ../scripts/calibrate.py --port /dev/ttyUSB0 --out config/calibration.json
+python ../scripts/calibrate.py --arm-port /dev/ttyUSB1 --out config/calibration.json
 ```
 
-Then play a game:
+Then play a game — both ESP32s need to be connected, each on its own port:
 
 ```bash
-python -m chess_arm.main --port /dev/ttyUSB0 --calibration config/calibration.json --human-color white
+python -m chess_arm.main \
+  --board-port /dev/ttyUSB0 --arm-port /dev/ttyUSB1 \
+  --calibration config/calibration.json --human-color white
 ```
 
 Optional: install [Stockfish](https://stockfishchess.org/) and pass
@@ -133,13 +178,21 @@ cd software
 pytest
 ```
 
+## Media
+
+<p align="center">
+  <img src="media/mechanism_gripper.gif" alt="Gripper mechanism close-up" width="280">
+  <img src="media/board_complete.gif" alt="Assembled board in action" width="280">
+</p>
+
+More photos in [`media/photos/`](media/photos/).
+
 ## Roadmap
 
-- [ ] Finalize arm DOF and gripper/electromagnet choice
 - [ ] Full 64-square + graveyard calibration
-- [ ] Record and publish the first end-to-end demo GIF
 - [ ] Handle promotions with a physical piece swap prompt
-- [ ] Optional: onboard OLED/LED status on the ESP32
+- [ ] Optional: onboard OLED/LED status on either ESP32
+- [ ] Optional: swap the gripper for an electromagnet variant
 
 ## License
 
@@ -147,5 +200,15 @@ pytest
 
 ## Author
 
-Built by [Tu Nombre](https://www.linkedin.com/in/tu-usuario/) — reach out on
-LinkedIn or open an issue if you're building something similar.
+**Alejandra Obando Cortes**
+Embedded Systems / Robotics Engineer
+
+- 📧 [obandoaleja281@gmail.com](mailto:obandoaleja281@gmail.com)
+- 💼 [LinkedIn](https://www.linkedin.com/in/alejandra-obando-cortes-b485223a4/)
+- 💻 [GitHub](https://github.com/obandoaleja281-ctrl)
+
+Built as an end-to-end embedded + robotics + software project: dual-ESP32
+firmware (C++/PlatformIO), PWM/I2C servo control, sensor-matrix design, and
+a Python game engine talking to it all over serial. Reach out on LinkedIn
+or open an issue if you're building something similar — or if you're
+hiring for embedded/robotics/software roles.

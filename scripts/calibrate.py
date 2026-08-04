@@ -5,8 +5,11 @@ Jogs the arm to angles you type in (previewed live over serial) and saves
 them as the hover/down pose for a square or a graveyard slot. Re-run it any
 time to add more squares to an existing calibration file.
 
+Only talks to the arm ESP32 (firmware/esp32_arm) -- the board ESP32 isn't
+involved in calibration.
+
 Usage:
-    python scripts/calibrate.py --port /dev/ttyUSB0
+    python scripts/calibrate.py --arm-port /dev/ttyUSB1
 """
 
 from __future__ import annotations
@@ -56,7 +59,7 @@ def save_graveyard(cal: Calibration, pose_type: str, angles: list[float]) -> Non
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--port", required=True)
+    parser.add_argument("--arm-port", required=True, help="Arm ESP32 serial port, e.g. /dev/ttyUSB1")
     parser.add_argument("--baudrate", type=int, default=115200)
     parser.add_argument("--out", default="software/config/calibration.json")
     args = parser.parse_args()
@@ -69,13 +72,13 @@ def main() -> None:
         cal = Calibration(home=[90, 90, 90, 90], gripper_open=40, gripper_closed=120)
         print("Starting a new calibration file.")
 
-    link = SerialLink(SerialLinkConfig(port=args.port, baudrate=args.baudrate))
+    link = SerialLink(SerialLinkConfig(port=args.arm_port, baudrate=args.baudrate))
     with link:
         ready = link.wait_for_event("ready", timeout=10.0)
         if ready is None:
-            print("Timed out waiting for the ESP32.")
+            print("Timed out waiting for the arm ESP32.")
             return
-        print("ESP32 ready:", ready)
+        print("Arm ESP32 ready:", ready)
 
         current = list(cal.home)
         gripper = cal.gripper_open
