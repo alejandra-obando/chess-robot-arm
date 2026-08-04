@@ -1,0 +1,18 @@
+{
+  "_comment": "Template only. Run scripts/calibrate.py to generate a real software/config/calibration.json with all 64 squares + graveyard slots measured on your arm.",
+  "home": [90, 90, 90, 90],
+  "gripper_open": 40,
+  "gripper_closed": 120,
+  "hover_duration_ms": 800,
+  "move_duration_ms": 600,
+  "squares": {
+    "a1": { "hover": [10, 60, 90, 90], "down": [10, 40, 70, 90] },
+    "h1": { "hover": [170, 60, 90, 90], "down": [170, 40, 70, 90] },
+    "e4": { "hover": [90, 55, 85, 90], "down": [90, 35, 65, 90] },
+    "h8": { "hover": [170, 100, 60, 90], "down": [170, 80, 40, 90] }
+  },
+  "graveyard": [
+    { "hover": [5, 90, 90, 90], "down": [5, 70, 70, 90] },
+    { "hover": [175, 90, 90, 90], "down": [175, 70, 70, 90] }
+  ]
+}

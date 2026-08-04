@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+
+# PlatformIO
+.pio/
+.vscode/.browse.c_cpp.db*
+.vscode/c_cpp_properties.json
+.vscode/launch.json
+.vscode/ipch
+
+# Calibration is machine/arm-specific; keep the example, not the real one.
+software/config/calibration.json
+
+# Raw phone footage (large; keep only what make_gif.sh/curated photos need)
+media/raw/*
+!media/raw/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local Claude Code settings
+.claude/

@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chess-arm"
+version = "0.1.0"
+description = "PC-side brain for a chess-playing robotic arm: board sensing, game logic and motion planning over a serial link to an ESP32."
+readme = "../README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pyserial>=3.5",
+    "python-chess>=1.999",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+chess-arm = "chess_arm.main:main"
+
+[tool.setuptools.packages.find]
+include = ["chess_arm*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
